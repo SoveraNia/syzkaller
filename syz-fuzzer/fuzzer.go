@@ -567,6 +567,9 @@ func (fuzzer *Fuzzer) checkNewSignal(p *prog.Prog, info *ipc.ProgInfo) (calls []
 
 func (fuzzer *Fuzzer) checkNewCallSignal(p *prog.Prog, info *ipc.CallInfo, call int) int {
 	diff := fuzzer.maxSignal.DiffRaw(info.Signal, signalPrio(p, info, call))
+	for e := range diff {
+		log.Logf(MABLogLevel, "= %x\n", e)
+	}
 	if diff.Empty() {
 		return 0
 	}

@@ -9,6 +9,9 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+
+	"github.com/google/syzkaller/pkg/hash"
+	"github.com/google/syzkaller/pkg/log"
 )
 
 // Maximum length of generated binary blobs inserted into the program.
@@ -22,6 +25,7 @@ const maxBlobLen = uint64(100 << 10)
 // ct:      ChoiceTable for syscalls.
 // corpus:  The entire corpus, including original program p.
 func (p *Prog) Mutate(rs rand.Source, ncalls int, ct *ChoiceTable, corpus []*Prog) {
+	sigBefore := hash.Hash(p.Serialize())
 	p.Source = 1
 	r := newRand(p.Target, rs)
 	if ncalls < len(p.Calls) {
@@ -55,6 +59,8 @@ func (p *Prog) Mutate(rs rand.Source, ncalls int, ct *ChoiceTable, corpus []*Pro
 	if got := len(p.Calls); got < 1 || got > ncalls {
 		panic(fmt.Sprintf("bad number of calls after mutation: %v, want [1, %v]", got, ncalls))
 	}
+	sigAfter := hash.Hash(p.Serialize())
+	log.Logf(0, "Mutate %v > %v", sigBefore.String(), sigAfter.String())
 }
 
 // Internal state required for performing mutations -- currently this matches
