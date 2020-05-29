@@ -45,6 +45,25 @@ func (merger *OutputMerger) Add(name string, r io.ReadCloser) {
 	merger.AddDecoder(name, r, nil)
 }
 
+func (merger *OutputMerger) FilterWrite(out []byte) {
+	buf := make([]byte, 0)
+	for _, c := range out {
+		if c == '\n' {
+			if len(buf) > 4 &&
+				buf[0] == '2' &&
+				buf[1] == '0' &&
+				buf[2] == '2' &&
+				buf[3] == '0' {
+				buf = append(buf, c)
+				merger.tee.Write(buf)
+			}
+			buf = buf[:0]
+		} else {
+			buf = append(buf, c)
+		}
+	}
+}
+
 func (merger *OutputMerger) AddDecoder(name string, r io.ReadCloser,
 	decoder func(data []byte) (start, size int, decoded []byte)) {
 	merger.wg.Add(1)
@@ -68,7 +87,8 @@ func (merger *OutputMerger) AddDecoder(name string, r io.ReadCloser,
 					out := pending[:pos+1]
 					if merger.tee != nil {
 						merger.teeMu.Lock()
-						merger.tee.Write(out)
+						// merger.tee.Write(out)
+						merger.FilterWrite(out)
 						merger.teeMu.Unlock()
 					}
 					select {
@@ -84,7 +104,8 @@ func (merger *OutputMerger) AddDecoder(name string, r io.ReadCloser,
 					pending = append(pending, '\n')
 					if merger.tee != nil {
 						merger.teeMu.Lock()
-						merger.tee.Write(pending)
+						// merger.tee.Write(pending)
+						merger.FilterWrite(pending)
 						merger.teeMu.Unlock()
 					}
 					select {

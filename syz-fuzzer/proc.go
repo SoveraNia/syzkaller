@@ -207,11 +207,14 @@ func (proc *Proc) triageInput(item *WorkTriage) mab.TriageResult {
 	minimizeTimeBefore := ret.VerifyTime / float64(signalRuns)
 	ret.SourceExecTime = minimizeTimeBefore
 	minimizeTimeAfter := minimizeTimeBefore
+	sigBefore := hash.Hash(item.p.Serialize())
 	if item.flags&ProgMinimized == 0 {
 		item.p, item.call = prog.Minimize(item.p, item.call, false,
 			func(p1 *prog.Prog, call1 int) bool {
 				p1.Source = 2
 				timeAverage := 0.0
+				sigAfter := hash.Hash(p1.Serialize())
+				log.Logf(0, "Minimize %v > %v", sigBefore.String(), sigAfter.String())
 
 				for i := 0; i < minimizeAttempts; i++ {
 					var info *ipc.ProgInfo
@@ -247,7 +250,7 @@ func (proc *Proc) triageInput(item *WorkTriage) mab.TriageResult {
 		MinimizeTimeSave: ret.MinimizeTimeSave,
 	}
 
-	log.Logf(2, "added new input for %v to corpus:\n%s", logCallName, data)
+	log.Logf(2, "added new input %v for %v to corpus:\n%s", sig.String(), logCallName, data)
 	proc.fuzzer.sendInputToManager(rpctype.RPCInput{
 		Call:   callName,
 		Prog:   data,
@@ -396,6 +399,9 @@ func (proc *Proc) executeRaw(opts *ipc.ExecOpts, p *prog.Prog, stat Stat) (*ipc.
 	defer proc.fuzzer.gate.Leave(ticket)
 
 	proc.logProgram(opts, p)
+	data := p.Serialize()
+	sig := hash.Hash(data)
+	log.Logf(MABLogLevel, ">>> %s\n", sig.String())
 	ts := time.Now().UnixNano()
 	for try := 0; ; try++ {
 		atomic.AddUint64(&proc.fuzzer.stats[stat], 1)
