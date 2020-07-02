@@ -95,6 +95,7 @@ type CallInfo struct {
 }
 
 type ProgInfo struct {
+	Time  int64
 	Calls []CallInfo
 	Extra CallInfo // stores Signal and Cover collected from background threads
 }
@@ -279,7 +280,8 @@ func (env *Env) Exec(opts *ExecOpts, p *prog.Prog) (output []byte, info *ProgInf
 			return
 		}
 	}
-	output, hanged, err0 = env.cmd.exec(opts, progData)
+	var execTime int64
+	output, hanged, execTime, err0 = env.cmd.exec(opts, progData)
 	if err0 != nil {
 		env.cmd.close()
 		env.cmd = nil
@@ -293,6 +295,9 @@ func (env *Env) Exec(opts *ExecOpts, p *prog.Prog) (output []byte, info *ProgInf
 	if !env.config.UseForkServer {
 		env.cmd.close()
 		env.cmd = nil
+	}
+	if info != nil {
+		info.Time = execTime
 	}
 	return
 }
@@ -712,7 +717,11 @@ func (c *command) wait() error {
 	return err
 }
 
-func (c *command) exec(opts *ExecOpts, progData []byte) (output []byte, hanged bool, err0 error) {
+func (c *command) exec(opts *ExecOpts, progData []byte) (output []byte, hanged bool, timeExec int64, err0 error) {
+	tsBgn := time.Now().UnixNano()
+	defer func() {
+		timeExec = time.Now().UnixNano() - tsBgn
+	}()
 	req := &executeReq{
 		magic:     inMagic,
 		envFlags:  uint64(c.config.Flags),
