@@ -116,4 +116,7 @@ type Config struct {
 	SyzFuzzerBin   string `json:"-"`
 	SyzExecprogBin string `json:"-"`
 	SyzExecutorBin string `json:"-"`
+
+	// Multi-armed-bandit based seed scheduling (default: true).
+	MabSs bool `json:"mab_ss"`
 }

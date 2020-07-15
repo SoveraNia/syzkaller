@@ -60,6 +60,7 @@ func defaultValues() *Config {
 		SSHUser:   "root",
 		Cover:     true,
 		Reproduce: true,
+		MabSs:     true,
 		Sandbox:   "none",
 		RPC:       ":0",
 		Procs:     6,

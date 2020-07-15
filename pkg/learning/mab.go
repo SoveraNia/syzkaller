@@ -97,6 +97,8 @@ func (mab *MultiArmedBandit) updateWeight(idx int) {
 	for i := idx + 1; i < len(mab.choices); i++ {
 		mab.choices[i].sumWeights = mab.choices[i-1].sumWeights + mab.choices[i].weight
 	}
+	log.Logf(MABLogLevel, "MAB weight %v/%v: %+v / %+v",
+		idx, len(mab.choices), mab.choices[idx], mab.choices[len(mab.choices)-1])
 }
 
 func (mab *MultiArmedBandit) NewChoiceWithReward(initialReward float64) int {

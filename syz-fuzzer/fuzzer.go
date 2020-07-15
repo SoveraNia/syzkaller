@@ -142,6 +142,7 @@ func main() {
 		flagPprof   = flag.String("pprof", "", "address to serve pprof profiles")
 		flagTest    = flag.Bool("test", false, "enable image testing mode")      // used by syz-ci
 		flagRunTest = flag.Bool("runtest", false, "enable program testing mode") // used by pkg/runtest
+		flagMabSs   = flag.Bool("mabss", true, "enable multi-armed-bandit seed scheduling")
 	)
 	flag.Parse()
 	outputType := parseOutputType(*flagOutput)
@@ -251,7 +252,7 @@ func main() {
 		faultInjectionEnabled:    r.CheckResult.Features[host.FeatureFault].Enabled,
 		comparisonTracingEnabled: r.CheckResult.Features[host.FeatureComparisons].Enabled,
 		corpusHashes:             make(map[hash.Sig]int),
-		mabSSEnabled:             true,
+		mabSSEnabled:             *flagMabSs,
 		mabSS:                    learning.NewMABSeedScheduler(0.1),
 	}
 	gateCallback := fuzzer.useBugFrames(r, *flagProcs)

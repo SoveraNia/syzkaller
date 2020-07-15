@@ -424,7 +424,7 @@ func (inst *inst) testProgram(command string, testTime time.Duration) error {
 }
 
 func FuzzerCmd(fuzzer, executor, name, OS, arch, fwdAddr, sandbox string, procs, verbosity int,
-	cover, debug, test, runtest bool) string {
+	cover, debug, test, runtest, mabss bool) string {
 	osArg := ""
 	if targets.Get(OS, arch).HostFuzzer {
 		// Only these OSes need the flag, because the rest assume host OS.
@@ -440,14 +440,18 @@ func FuzzerCmd(fuzzer, executor, name, OS, arch, fwdAddr, sandbox string, procs,
 	if verbosity != 0 {
 		verbosityArg = fmt.Sprintf(" -vv=%v", verbosity)
 	}
+	mabSsArg := ""
+	if !mabss {
+		mabSsArg = " -mabss=false"
+	}
 	return fmt.Sprintf("%v -executor=%v -name=%v -arch=%v%v -manager=%v -sandbox=%v"+
-		" -procs=%v -cover=%v -debug=%v -test=%v%v%v",
+		" -procs=%v -cover=%v -debug=%v -test=%v%v%v%v",
 		fuzzer, executor, name, arch, osArg, fwdAddr, sandbox,
-		procs, cover, debug, test, runtestArg, verbosityArg)
+		procs, cover, debug, test, runtestArg, verbosityArg, mabSsArg)
 }
 
 func OldFuzzerCmd(fuzzer, executor, name, OS, arch, fwdAddr, sandbox string, procs int, cover, test bool) string {
-	return FuzzerCmd(fuzzer, executor, name, OS, arch, fwdAddr, sandbox, procs, 0, cover, false, test, false)
+	return FuzzerCmd(fuzzer, executor, name, OS, arch, fwdAddr, sandbox, procs, 0, cover, false, test, false, true)
 }
 
 func ExecprogCmd(execprog, executor, OS, arch, sandbox string, repeat, threaded, collide bool,
