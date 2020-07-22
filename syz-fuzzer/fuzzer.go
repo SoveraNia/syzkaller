@@ -366,10 +366,14 @@ func (fuzzer *Fuzzer) pollLoop() {
 
 func (fuzzer *Fuzzer) poll(needCandidates bool, stats map[string]uint64) bool {
 	a := &rpctype.PollArgs{
-		Name:           fuzzer.name,
-		NeedCandidates: needCandidates,
-		MaxSignal:      fuzzer.grabNewSignal().Serialize(),
-		Stats:          stats,
+		Name:            fuzzer.name,
+		NeedCandidates:  needCandidates,
+		MaxSignal:       fuzzer.grabNewSignal().Serialize(),
+		Stats:           stats,
+		MABSSRewardDiff: nil,
+	}
+	if fuzzer.mabSSEnabled {
+		a.MABSSRewardDiff, a.MABSSTimeDiff, a.MABSSCovDiff = fuzzer.mabSS.Poll()
 	}
 	r := &rpctype.PollRes{}
 	if err := fuzzer.manager.Call("Manager.Poll", a, r); err != nil {
@@ -387,6 +391,9 @@ func (fuzzer *Fuzzer) poll(needCandidates bool, stats map[string]uint64) bool {
 	}
 	if needCandidates && len(r.Candidates) == 0 && atomic.LoadUint32(&fuzzer.triagedCandidates) == 0 {
 		atomic.StoreUint32(&fuzzer.triagedCandidates, 1)
+	}
+	if fuzzer.mabSSEnabled {
+		fuzzer.mabSS.UpdateTotal(r.MABSSTimeTotal, r.MABSSCovTotal)
 	}
 	return len(r.NewInputs) != 0 || len(r.Candidates) != 0 || maxSignal.Len() != 0
 }
@@ -408,7 +415,7 @@ func (fuzzer *Fuzzer) addInputFromAnotherFuzzer(inp rpctype.RPCInput) {
 	}
 	sig := hash.Hash(inp.Prog)
 	sign := inp.Signal.Deserialize()
-	fuzzer.addInputToCorpus(p, sign, sig)
+	fuzzer.addInputToCorpus(p, sign, sig, inp.MABSSReward)
 }
 
 func (fuzzer *Fuzzer) addCandidateInput(candidate rpctype.RPCCandidate) {
@@ -448,7 +455,7 @@ func (fuzzer *FuzzerSnapshot) chooseProgram(r *rand.Rand) *prog.Prog {
 	return fuzzer.corpus[idx]
 }
 
-func (fuzzer *Fuzzer) addInputToCorpus(p *prog.Prog, sign signal.Signal, sig hash.Sig) {
+func (fuzzer *Fuzzer) addInputToCorpus(p *prog.Prog, sign signal.Signal, sig hash.Sig, mabSSReward float64) {
 	fuzzer.corpusMu.Lock()
 	if _, ok := fuzzer.corpusHashes[sig]; !ok {
 		fuzzer.corpus = append(fuzzer.corpus, p)
@@ -460,7 +467,7 @@ func (fuzzer *Fuzzer) addInputToCorpus(p *prog.Prog, sign signal.Signal, sig has
 		fuzzer.sumPrios += prio
 		fuzzer.corpusPrios = append(fuzzer.corpusPrios, fuzzer.sumPrios)
 		if fuzzer.mabSSEnabled {
-			fuzzer.mabSS.NewChoice(p)
+			fuzzer.mabSS.NewChoiceWithReward(p, mabSSReward)
 		}
 	}
 	fuzzer.corpusMu.Unlock()

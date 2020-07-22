@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"sync"
 
+	"github.com/google/syzkaller/pkg/hash"
 	"github.com/google/syzkaller/pkg/log"
 	"github.com/google/syzkaller/prog"
 )
@@ -33,11 +34,16 @@ type MABSeedScheduler struct {
 	// Corpus program array. The index in this array is the same as the
 	// index in the MAB engine.
 	corpus []*prog.Prog
+	// Reward change since last Poll.
+	rewardChange map[int]float64
+	timeDiff     int64
+	covDiff      int
 }
 
 func NewMABSeedScheduler(theta float64) *MABSeedScheduler {
 	return &MABSeedScheduler{
-		mab: &MultiArmedBandit{theta: theta},
+		mab:          &MultiArmedBandit{theta: theta},
+		rewardChange: make(map[int]float64),
 	}
 }
 
@@ -56,10 +62,14 @@ func (ss *MABSeedScheduler) Choose(r *rand.Rand) (int, float64, []*prog.Prog) {
 }
 
 func (ss *MABSeedScheduler) NewChoice(p *prog.Prog) int {
+	return ss.NewChoiceWithReward(p, 0.0)
+}
+
+func (ss *MABSeedScheduler) NewChoiceWithReward(p *prog.Prog, initialReward float64) int {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 
-	idx := ss.mab.NewChoice()
+	idx := ss.mab.NewChoiceWithReward(initialReward)
 	ss.corpus = append(ss.corpus, p)
 	return idx
 }
@@ -112,13 +122,63 @@ func (ss *MABSeedScheduler) Update(idx int, result ExecResult, pr float64) {
 	}
 	if normReward != 0.0 {
 		ss.mab.Update(idx, normReward, pr)
+		// Record reward change.
+		if _, ok := ss.rewardChange[idx]; !ok {
+			ss.rewardChange[idx] = 0.0
+		}
+		ss.rewardChange[idx] += normReward
 	}
 	// Update total time/coverage after everything.
 	if updateTotal {
 		ss.totalTime += result.TimeExec
 		ss.totalCov += result.Coverage
+		ss.timeDiff += result.TimeExec
+		ss.covDiff += result.Coverage
 		ss.count++
 		ss.rewardTotal += reward
 		ss.rewardTotal2 += reward * reward
 	}
+}
+
+func (ss *MABSeedScheduler) Poll() (map[hash.Sig]float64, int64, int) {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+
+	ret := make(map[hash.Sig]float64)
+
+	syncBatchSize := 100
+	synced := make([]int, 0)
+
+	for pidx, diff := range ss.rewardChange {
+		sig := hash.Hash(ss.corpus[pidx].Serialize())
+		ret[sig] = diff
+		synced = append(synced, pidx)
+		syncBatchSize--
+		if syncBatchSize < 0 {
+			break
+		}
+	}
+
+	// Clear reward changes.
+	log.Logf(MABLogLevel, "MAB sync %v / %v", len(synced), len(ss.rewardChange))
+	for _, pidx := range synced {
+		delete(ss.rewardChange, pidx)
+	}
+
+	timeDiff := ss.timeDiff
+	covDiff := ss.covDiff
+	ss.timeDiff = 0
+	ss.covDiff = 0
+
+	return ret, timeDiff, covDiff
+}
+
+func (ss *MABSeedScheduler) UpdateTotal(timeTotal int64, covTotal int) {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+
+	log.Logf(MABLogLevel, "MAB total time: %v -> %v, coverage: %v -> %v",
+		ss.totalTime, timeTotal, ss.totalCov, covTotal)
+	ss.totalTime = timeTotal
+	ss.totalCov = covTotal
 }

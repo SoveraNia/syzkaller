@@ -38,7 +38,7 @@ func TestChooseProgram(t *testing.T) {
 			sizeSig = 0
 		}
 		inp := generateInput(target, rs, 10, sizeSig)
-		fuzzer.addInputToCorpus(inp.p, inp.sign, inp.sig)
+		fuzzer.addInputToCorpus(inp.p, inp.sign, inp.sig, 0.0)
 		priorities[inp.p] = int64(len(inp.sign))
 	}
 	snapshot := fuzzer.snapshot()
@@ -70,7 +70,7 @@ func TestAddInputConcurrency(t *testing.T) {
 			r := rand.New(rs)
 			for it := 0; it < iters; it++ {
 				inp := generateInput(target, rs, 10, it)
-				fuzzer.addInputToCorpus(inp.p, inp.sign, inp.sig)
+				fuzzer.addInputToCorpus(inp.p, inp.sign, inp.sig, 0.0)
 				snapshot := fuzzer.snapshot()
 				snapshot.chooseProgram(r).Clone()
 			}
