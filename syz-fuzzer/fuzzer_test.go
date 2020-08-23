@@ -23,7 +23,7 @@ func TestChooseProgram(t *testing.T) {
 	rs := rand.NewSource(0)
 	r := rand.New(rs)
 	target := getTarget(t, "test", "64")
-	fuzzer := &Fuzzer{corpusHashes: make(map[hash.Sig]struct{})}
+	fuzzer := &Fuzzer{corpusHashes: make(map[hash.Sig]int)}
 
 	const (
 		maxIters   = 1000
@@ -57,7 +57,7 @@ func TestChooseProgram(t *testing.T) {
 
 func TestAddInputConcurrency(t *testing.T) {
 	target := getTarget(t, "test", "64")
-	fuzzer := &Fuzzer{corpusHashes: make(map[hash.Sig]struct{})}
+	fuzzer := &Fuzzer{corpusHashes: make(map[hash.Sig]int)}
 
 	const (
 		routines = 10

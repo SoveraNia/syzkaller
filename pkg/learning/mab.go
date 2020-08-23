@@ -146,3 +146,13 @@ func (mab *MultiArmedBandit) Update(idx int, reward, pr float64) {
 	mab.sumRewards += rewardDiff
 	mab.updateWeight(idx)
 }
+
+func (mab *MultiArmedBandit) GetRawReward(idx int) float64 {
+	mab.mu.Lock()
+	defer mab.mu.Unlock()
+
+	if idx < 0 || idx >= len(mab.choices) {
+		return math.Inf(-1)
+	}
+	return mab.choices[idx].reward + mab.rewardAdjust
+}
